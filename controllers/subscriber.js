@@ -1,4 +1,5 @@
 const mqttService = require("../service/mqttService");
+const client = require("../service/database");
 const host = "mqtt-dashboard.com";
 const port = "8884";
 const MQTT_HOST_NAME = `wss://${host}:${port}/mqtt`;
@@ -11,11 +12,31 @@ exports.getSubscriberPage = function (req, res) {
     const topic = "/test";
 
     mqttClient.mqttSubscribe(topic, { qos: 0 }, function (message) {
-      console.log("message ===============> ", message);
+      client.query(
+        `INSERT INTO mqtt_data (value) VALUES ($1)`,
+        [message.toString()],
+        (err, data) => {
+          if (!err) {
+            console.log("success");
+          } else {
+            console.log("eror ===>", err.message);
+          }
+        }
+      );
     });
 
-    res.status(200).json({
-      status: 200,
+    client.query("SELECT * from mqtt_data", async (err, data) => {
+      if (!err) {
+        await res.status(200).json({
+          status: 200,
+          data: data?.rows || [],
+        });
+      } else {
+        await res.status(400).json({
+          status: 400,
+          message: err.message,
+        });
+      }
     });
   } catch (error) {
     console.log(error);
